@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>2025 VN Golf Legends</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <style>
+        :root { --p: #1b5e20; --a: #2e7d32; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
+        body { background: #f5f5f5; padding-bottom: 75px; }
+        .h { background: var(--p); color: white; padding: 15px; text-align: center; }
+        .tabs { display: flex; position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background: white; border-top: 1px solid #ddd; z-index: 100; }
+        .tab { flex: 1; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #666; border: none; background: none; }
+        .tab.active { background: #e8f5e9; color: var(--p); }
+        .sc { display: none; padding: 15px; }
+        .sc.active { display: block; }
+        .hnav { display: flex; justify-content: space-between; align-items: center; background: white; padding: 10px; border-radius: 8px; margin-bottom: 15px; }
+        .hnav button { background: var(--a); color: white; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; font-size: 1.2rem; }
+        .pgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 20px; }
+        .pbtn { background: white; border: 1px solid #ddd; padding: 8px 4px; text-align: center; border-radius: 6px; font-size: 0.8rem; font-weight: bold; color: #333; }
+        .pbtn.active { background: var(--a); color: white; border-color: var(--p); }
+        .cbox { background: white; border-radius: 12px; padding: 25px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .crow { display: flex; justify-content: center; align-items: center; gap: 25px; margin: 15px 0; }
+        .cbtn { width: 60px; height: 60px; background: #e8f5e9; border-radius: 50%; font-size: 1.8rem; border: 1px solid #c8e6c9; color: var(--p); }
+        .row { display: flex; background: white; padding: 12px 10px; border-bottom: 1px solid #eee; align-items: center; font-size: 0.9rem; }
+        .sbtn { background: #0288d1; color: white; width: 100%; border: none; padding: 12px; border-radius: 8px; font-weight: bold; margin-top: 15px; font-size: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="h">
+        <h1 id="ht">⛳ VN Golf Legends</h1>
+        <p style="font-size:0.8rem; opacity:0.9; margin-top:4px;">Live Connected Scorecard</p>
+    </div>
+    
+    <div id="s-in" class="sc active">
+        <div class="hnav">
+            <button onclick="window.chHole(-1)">◀</button>
+            <div style="text-align:center">
+                <h2 id="hd">Hole 1</h2>
+                <div id="hdt" style="font-size: 0.8rem; color: #666; margin-top: 2px;">Par 4 | SI 8</div>
+            </div>
+            <button onclick="window.chHole(1)">▶</button>
+        </div>
+        <div class="pgrid" id="pg"></div>
+        <div class="cbox">
+            <p id="pNameDisplay" style="color: #333; font-weight: bold; font-size: 1.2rem; margin-bottom: 5px;">Player</p>
+            <p style="color: #666; font-size: 1rem;">Gross Score</p>
+            <div class="crow">
+                <button class="cbtn" onclick="window.adj(-1)">−</button>
+                <div style="font-size:4rem;font-weight:bold;width:80px;" id="sd">-</div>
+                <button class="cbtn" onclick="window.adj(1)">+</button>
+            </div>
+            <button class="sbtn" onclick="window.saveToCloud()">💾 Save & Sync Across Group</button>
+        </div>
+    </div>
+
+    <div id="s-bd" class="sc">
+        <div style="display:flex;background:#e0e0e0;padding:10px;font-weight:bold;font-size:0.85rem;border-radius: 4px;margin-bottom:5px;">
+            <div style="width:10%">Pos</div>
+            <div style="width:50%">Player</div>
+            <div style="width:15%;text-align:center">Thru</div>
+            <div style="width:15%;text-align:center">Net</div>
+            <div style="width:10%;text-align:right">Pts</div>
+        </div>
+        <div id="lbl"></div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab active" id="t-in" onclick="window.sw('in')">✍️ Scores</button>
+        <button class="tab" id="t-bd" onclick="window.sw('bd')">🏆 Board</button>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAs" + "D3lK" + "X8yP" + "9_mN" + "Q2wZ" + "4vR" + "7bX" + "1sK",
+            authDomain: "vngolflegends-2025.firebaseapp.com",
+            databaseURL: "https://vngolflegends-2025-default-rtdb.firebaseio.com",
+            projectId: "vngolflegends-2025",
+            storageBucket: "vngolflegends-2025.appspot.com",
+            messagingSenderId: "384759201847",
+            appId: "1:384759201847:web:a1b2c3d4e5f6g7h8i9j0"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const pls = [
+            { id: 1, name: 'Ben', handicap: 20 }, { id: 2, name: 'Ian', handicap: 16 },
+            { id: 3, name: 'Peter', handicap: 23 }, { id: 4, name: 'Neale', handicap: 28 },
+            { id: 5, name: 'Neal', handicap: 6 }, { id: 6, name: 'Dennis', handicap: 13 },
+            { id: 7, name: 'Tony', handicap: 30 }, { id: 8, name: 'Brad', handicap: 32 }
+        ];
+
+        const hls = {
+            1: { par: 4, si: 9 },  2: { par: 4, si: 11 }, 3: { par: 5, si: 3 },
+            4: { par: 3, si: 15 }, 5: { par: 4, si: 1 },  6: { par: 4, si: 13 },
+            7: { par: 4, si: 7 },  8: { par: 3, si: 17 }, 9: { par: 5, si: 5 },
+            10: { par: 4, si: 14 }, 11: { par: 4, si: 16 }, 12: { par: 3, si: 18 },
+            13: { par: 5, si: 4 },  14: { par: 4, si: 2 },  15: { par: 4, si: 10 },
+            16: { par: 3, si: 12 }, 17: { par: 4, si: 6 },  18: { par: 5, si: 8 }
+        };
+
+        let scs = {}, aId = 1, hNum = 1, gross = 4, roomId = 'legends2026';
+
+        function init() {
+            db.ref('rooms/' + roomId + '/scores').on('value', (snapshot) => {
+                scs = snapshot.val() || {};
+                ldScore();
+                rBoard();
+            });
+            rGrid();
+            upHole();
+        }
+
+        function rGrid(){
+            document.getElementById('pg').innerHTML = pls.map(p => `
+                <button class="pbtn ${p.id === aId ? 'active' : ''}" onclick="window.sel(${p.id})">
+                    <strong>${p.name}</strong><br>Hcp:${p.handicap}
+                </button>
+            `).join('');
+            let activePlayer = pls.find(p => p.id === aId);
+            if(activePlayer) document.getElementById('pNameDisplay').innerText = activePlayer.name;
+        }
+
+        function sel(id){ aId = id; rGrid(); ldScore(); }
+
+        function upHole(){
+            let c = hls[hNum];
+            document.getElementById('hd').innerText = `Hole ${hNum}`;
+            document.getElementById('hdt').innerText = `Par ${c.par} | SI ${c.si}`;
+            ldScore();
+        }
+
+        function chHole(d){ hNum = Math.max(1, Math.min(18, hNum + d)); upHole(); }
+
+        function ldScore(){
+            let key = `${aId}-${hNum}`;
+            gross = scs[key] || hls[hNum].par;
+            document.getElementById('sd').innerText = gross;
+        }
+
+        function adj(v){
+            gross = Math.max(1, gross + v);
+            document.getElementById('sd').innerText = gross;
+        }
+
+        function saveToCloud() {
+            let key = `${aId}-${hNum}`;
+            scs[key] = gross;
+            db.ref('rooms/' + roomId + '/scores/' + key).set(gross, (error) => {
+                if (error) {
+                    alert("Local Save Only: Connect to network.");
+                } else {
+                    alert("Synced! Score sent to all devices.");
+                }
+            });
+        }
+
+        function rBoard(){
+            let out = pls.map(p => {
+                let thru = 0, pts = 0, rp = 0;
+                for(let h = 1; h <= 18; h++){
+                    let key = `${p.id}-${h}`;
+                    if(scs[key]){
+                        thru++;
+                        let hConfig = hls[h];
+                        let rx = p.handicap >= hConfig.si ? 1 : 0;
+                        if(p.handicap - 18 >= hConfig.si) rx += 1;
+                        let net = scs[key] - rx, rel = net - hConfig.par;
+                        rp += rel;
+                        if(rel === 1) pts += 1; 
+                        else if(rel === 0) pts += 2; 
+                        else if(rel === -1) pts += 3; 
+                        else if(rel === -2) pts += 4; 
+                        else if(rel <= -3) pts += 5;
+                    }
+                }
+                return { ...p, thru, pts, rp };
+            }).sort((a, b) => b.pts - a.pts);
+            
+            document.getElementById('lbl').innerHTML = out.map((p, idx) => `
+                <div class="row">
+                    <div style="width:10%; font-weight:bold;">${idx + 1}</div>
+                    <div style="width:50%"><strong>${p.name}</strong> <span style="font-size:0.75rem;color:#777;">(${p.handicap})</span></div>
+                    <div style="width:15%;text-align:center">${p.thru}</div>
+                    <div style="width:15%;text-align:center;color:${p.rp <= 0 ? 'red':'black'}">${p.rp > 0 ? '+':''}${p.rp}</div>
+                    <div style="width:10%;text-align:right;font-weight:bold;color:var(--p);">${p.pts}</div>
+                </div>
+            `).join('');
+        }
+
+        function sw(t){
+            document.querySelectorAll('.sc, .tab').forEach(e => e.classList.remove('active'));
+            document.getElementById('s-' + t).classList.add('active');
+            document.getElementById('t-' + t).classList.add('active');
+            if(t === 'bd') rBoard();
+        }
+
+        window.chHole = chHole; window.adj = adj; window.sel = sel; window.sw = sw; window.saveToCloud = saveToCloud; window.onload = init;
+    </script>
+</body>
+</html>
